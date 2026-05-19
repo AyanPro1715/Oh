@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AllX AI Support</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+    font-family: system-ui, -apple-system, sans-serif;
+    background: linear-gradient(145deg,#0a0c12,#0f1119);
+    min-height:100vh;
+    color:#eef2ff;
+}
+.mascot-wrapper{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    width:70px;
+    height:70px;
+    z-index:2000;
+    cursor:pointer;
+}
+.mascot-wrapper svg{ width:100%; height:100%; }
+.allx-chat-container{
+    position:fixed;
+    bottom:0;
+    left:0;
+    right:0;
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    visibility:hidden;
+    opacity:0;
+    transform:translateY(100%);
+    transition:0.3s;
+    z-index:3000;
+}
+.allx-chat-container.chat-open{
+    visibility:visible;
+    opacity:1;
+    transform:translateY(0);
+}
+.chat-window{
+    width:100%;
+    max-width:500px;
+    height:70vh;
+    background:#11131f;
+    border-radius:25px 25px 0 0;
+    display:flex;
+    flex-direction:column;
+    border: 1px solid #2d2f31;
+}
+.chat-header{
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+    background:#0b0e1a;
+    border-radius:25px 25px 0 0;
+}
+.chat-header button { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
+.chat-messages{
+    flex:1;
+    padding:15px;
+    overflow-y:auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.message{ display: flex; width: 100%; }
+.message.user{ justify-content: flex-end; }
+.message.assistant{ justify-content: flex-start; }
+.message-bubble{
+    padding:10px 14px;
+    border-radius:18px;
+    background:#262b40;
+    max-width: 80%;
+    line-height: 1.4;
+}
+.message.user .message-bubble{ background:#7c3aed; color: #fff; }
+.chat-input-area{
+    display:flex;
+    padding:15px;
+    gap:10px;
+    background:#0c0f1a;
+}
+#chatInput{
+    flex:1;
+    padding:12px;
+    border:none;
+    border-radius:20px;
+    background:#1a1e2f;
+    color:white;
+    resize: none;
+    outline: none;
+}
+.send-btn{
+    width:45px;
+    height: 45px;
+    border:none;
+    border-radius:50%;
+    background:#7c3aed;
+    color:white;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+</style>
+</head>
+<body>
+
+<h1 style="text-align:center;padding:40px; color:#7c3aed;">AllX Gaming</h1>
+
+<div class="mascot-wrapper" id="mascot">
+<svg viewBox="0 0 120 120">
+<circle cx="60" cy="60" r="55" fill="#1e1a3a" stroke="#a855f7" stroke-width="3"/>
+<circle cx="45" cy="50" r="8" fill="white"/>
+<circle cx="75" cy="50" r="8" fill="white"/>
+<circle cx="45" cy="50" r="3" fill="black"/>
+<circle cx="75" cy="50" r="3" fill="black"/>
+</svg>
+</div>
+
+<div class="allx-chat-container" id="chatBox">
+<div class="chat-window">
+<div class="chat-header">
+<span>🤖 AllX AI Support</span>
+<button onclick="toggleChat()">✕</button>
+</div>
+<div class="chat-messages" id="messages">
+<div class="message assistant"><div class="message-bubble">Hello! AllX Gaming Support me aapka swagat hai. Main aapki kya madad kar sakta hu?</div></div>
+</div>
+<div class="chat-input-area">
+<textarea id="chatInput" rows="1" placeholder="Type a message..." onkeypress="handleKey(event)"></textarea>
+<button class="send-btn" onclick="sendMessage()">➤</button>
+</div>
+</div>
+</div>
+
+<script>
+const chatBox = document.getElementById("chatBox");
+const mascot = document.getElementById("mascot");
+const messages = document.getElementById("messages");
+const input = document.getElementById("chatInput");
+
+let conversation = [];
+
+function toggleChat(){
+    chatBox.classList.toggle("chat-open");
+}
+
+mascot.addEventListener("click", toggleChat);
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+async function sendMessage(){
+    let text = input.value.trim();
+    if(!text) return;
+
+    addMessage("user", text);
+    conversation.push({ role: "user", content: text });
+    input.value = "";
+
+    // Loading status show karne ke liye
+    let loadingDiv = addMessage("assistant", "Thinking...");
+
+    try{
+        // Relative fetch query (Vercel automatic proxy redirect handle karega)
+        const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: conversation })
+        });
+
+        const data = await res.json();
+
+        if(data.error) {
+            loadingDiv.querySelector('.message-bubble').innerText = "⚠ Error: " + data.error;
+            return;
+        }
+
+        if(!data.reply){
+            loadingDiv.querySelector('.message-bubble').innerText = "⚠ Invalid response received.";
+            return;
+        }
+
+        conversation.push({ role: "assistant", content: data.reply });
+        loadingDiv.querySelector('.message-bubble').innerText = data.reply;
+
+    } catch(err){
+        loadingDiv.querySelector('.message-bubble').innerText = "⚠ Connection Error: " + err.message;
+    }
+}
+
+function addMessage(role, text){
+    let div = document.createElement("div");
+    div.className = "message " + role;
+
+    let bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    bubble.innerText = text;
+
+    div.appendChild(bubble);
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+}
+</script>
+
+</body>
+</html>
